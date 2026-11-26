@@ -244,6 +244,7 @@ bool G29_flag = false;
 #define DWIN_LANGUAGE_EEPROM_ADDRESS  0x02   // Between 0x01 and 0x63 (EEPROM_OFFSET-1)                                           
 #define DWIN_AUTO_BED_EEPROM_ADDRESS  0x03   //热床自动PID目标值
 #define DWIN_AUTO_NOZZ_EEPROM_ADDRESS 0x05   //喷嘴自动PID目标值
+#define DWIN_BEEPER_EEPROM_ADDRESS    0x07   // 1 = beeper on, 0 = beeper off
  
 void Draw_Leveling_Highlight(const bool sel) {
   HMI_flag.select_flag = sel;
@@ -410,6 +411,9 @@ static void Read_Boot_Step_Value()
     BL24CXX::read(DWIN_BOOT_STEP_EEPROM_ADDRESS, (uint8_t*)&HMI_flag.boot_step, sizeof(HMI_flag.boot_step));
     //读取语言配置项
     BL24CXX::read(DWIN_LANGUAGE_EEPROM_ADDRESS, (uint8_t*)&HMI_flag.language, sizeof(HMI_flag.language));
+    uint8_t stored_beeper = 0xFF;
+    BL24CXX::read(DWIN_BEEPER_EEPROM_ADDRESS, &stored_beeper, sizeof(stored_beeper));
+    if (stored_beeper <= 1) beeper_enabled = stored_beeper;
   #endif
   if(HMI_flag.boot_step!=Boot_Step_Max)
   {
@@ -1236,7 +1240,8 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define PREPARE_CASE_ABS  (PREPARE_CASE_PLA + ENABLED(HAS_HOTEND))
 #define PREPARE_CASE_COOL (PREPARE_CASE_ABS + EITHER(HAS_HOTEND, HAS_HEATED_BED))
 #define PREPARE_CASE_LANG (PREPARE_CASE_COOL + 1)
-#define PREPARE_CASE_TOTAL PREPARE_CASE_LANG
+#define PREPARE_CASE_BEEPER (PREPARE_CASE_LANG + 1)
+#define PREPARE_CASE_TOTAL PREPARE_CASE_BEEPER
 
 #define CONTROL_CASE_TEMP 1
 #define  CONTROL_CASE_MOVE  (CONTROL_CASE_TEMP + 1)
@@ -1563,6 +1568,21 @@ void Item_Prepare_Lang(const uint8_t row)
   Draw_Menu_Line(row, ICON_Language);
 }
 
+void Item_Prepare_Beeper(const uint8_t row)
+{
+  DWIN_Draw_Label(MBASE(row) + 2, F("Beeper"));
+  DWIN_Draw_String(false, true, font8x16, Color_White, Color_Bg_Black, 176, MBASE(row) + 2, beeper_enabled ? F("ON ") : F("OFF"));
+  Draw_Menu_Icon(row, ICON_Contact);
+  Draw_Menu_Line(row, ICON_Contact);
+}
+
+static void Save_Beeper_Setting()
+{
+  #if BOTH(EEPROM_SETTINGS, IIC_BL24CXX_EEPROM)
+    BL24CXX::write(DWIN_BEEPER_EEPROM_ADDRESS, &beeper_enabled, sizeof(beeper_enabled));
+  #endif
+}
+
 void Draw_Prepare_Menu() 
 {
   Clear_Main_Window();
@@ -1608,6 +1628,7 @@ void Draw_Prepare_Menu()
     if (PVISI(PREPARE_CASE_COOL)) Item_Prepare_Cool(PSCROL(PREPARE_CASE_COOL));   // Cooldown
   #endif
   if (PVISI(PREPARE_CASE_LANG)) Item_Prepare_Lang(PSCROL(PREPARE_CASE_LANG));     // Language CN/EN
+  if (PVISI(PREPARE_CASE_BEEPER)) Item_Prepare_Beeper(PSCROL(PREPARE_CASE_BEEPER));
 
   if (select_prepare.now) Draw_Menu_Cursor(PSCROL(select_prepare.now));
 }
@@ -5357,6 +5378,7 @@ void HMI_Prepare()
           if (index_prepare == PREPARE_CASE_COOL) Item_Prepare_Cool(MROWS);
         #endif
         if (index_prepare == PREPARE_CASE_LANG) Item_Prepare_Lang(MROWS);
+        if (index_prepare == PREPARE_CASE_BEEPER) Item_Prepare_Beeper(MROWS);
       }
       else
       {
@@ -5514,6 +5536,12 @@ void HMI_Prepare()
         HMI_flag.Refresh_bottom_flag=true;//标志不刷新底部参数
         Draw_Select_language();
         checkkey = Selectlanguage;
+        break;
+      case PREPARE_CASE_BEEPER: // Enable / disable the knob beeper
+        beeper_enabled = !beeper_enabled;
+        Save_Beeper_Setting();
+        Item_Prepare_Beeper(select_prepare.now + MROWS - index_prepare);
+        Draw_Menu_Cursor(select_prepare.now + MROWS - index_prepare);
         break;
       default: break;
     }

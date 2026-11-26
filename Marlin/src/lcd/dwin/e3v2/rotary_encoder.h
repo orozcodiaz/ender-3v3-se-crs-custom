@@ -49,6 +49,9 @@ typedef enum {
   ENCODER_DIFF_LONG_PRESS = 4//Long press  rock_20210910
 } ENCODER_DiffState;
 
+// 1 = beeper on, 0 = beeper off. Loaded from EEPROM at startup.
+extern uint8_t beeper_enabled;
+
 // Encoder initialization
 void Encoder_Configuration();
 

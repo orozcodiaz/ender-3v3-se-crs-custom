@@ -52,9 +52,11 @@ ENCODER_Rate EncoderRate;
 extern millis_t lMs_lcd_delay; // 获取当前的时间
 extern bool LCD_TURNOFF_FLAG;  // 息屏标志位
 extern uint8_t record_lcd_flag;
-// Buzzer
+// Buzzer. Default on until EEPROM says otherwise.
+uint8_t beeper_enabled = 1;
 void Encoder_tick() {
   #if PIN_EXISTS(BEEPER)
+    if (!beeper_enabled) return;
     WRITE(BEEPER_PIN, HIGH);
     delay(10);
     WRITE(BEEPER_PIN, LOW);
