@@ -558,7 +558,7 @@ static void Show_JPN_pause_title(void)
 void DWIN_Draw_Z_Offset_Float(uint8_t size, uint16_t color,uint16_t bcolor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value) 
 {
   #if ENABLED(COMPACT_GRID_VALUES)
-    char valueStr[8];
+    char valueStr[16];
     if (value < 0)
     {
       DWIN_Draw_String(false, true, font6x12, bcolor == Color_Bg_Black ? Color_Blue : color, bcolor, x + 5, y, F("-"));
