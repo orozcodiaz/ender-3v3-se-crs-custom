@@ -25,11 +25,7 @@
  * Release version. Leave the Marlin version or apply a custom scheme.
  */
 #ifndef SHORT_BUILD_VERSION
-  #if ENABLED(HIGH_SPEED_1)
-    #define SHORT_BUILD_VERSION "V1.0.6"
-  #else
-    #define SHORT_BUILD_VERSION "Ender-3V3 SE_Ten_P1T14T" // GD32F303RET6 + Multilanguage 1.Chinese 2.English 3.German 4.Russian 5.French 6.Turkish 7.Spanish 8.Italian 9.Portuguese
-  #endif  
+  #define SHORT_BUILD_VERSION "v1.1.0_CRS"
 #endif
 
 /**
@@ -101,7 +97,7 @@
    * documentation about a specific Marlin release. Displayed in the Info Menu.
    */
 #ifndef WEBSITE_URL
-  #define WEBSITE_URL "www.creality.com"
+  #define WEBSITE_URL "coldrocksoftware.com"
 #endif
 
 /**

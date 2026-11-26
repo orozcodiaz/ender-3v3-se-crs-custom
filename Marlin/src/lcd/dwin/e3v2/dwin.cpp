@@ -79,8 +79,8 @@ lin 3D Printer Firmware
   #define CORP_WEBSITE WEBSITE_URL
 #endif
 
-#define CORP_WEBSITE_C    "www.creality.cn "
-#define CORP_WEBSITE_E    "www.creality.com"
+#define CORP_WEBSITE_C    "coldrocksoftware.com"
+#define CORP_WEBSITE_E    "coldrocksoftware.com"
 #define PAUSE_HEAT
 #define CHECKFILAMENT true
 
