@@ -89,7 +89,7 @@ enum processID : uint8_t {
   Tune,
   #if HAS_PREHEAT
     PLAPreheat,
-    ABSPreheat,
+    TPUPreheat,
   #endif
   MaxSpeed,
   MaxSpeed_value,
@@ -602,6 +602,8 @@ extern enum DC_language current_language;
 // Color  FE29
 #define Color_White       0xFFFF
 #define Color_Yellow      0xFE29
+#define Color_Blue        0x19FF
+#define Color_Red         0xF44F
 #define Color_Bg_Window   0x31E8  // Popup background color
 #define Color_Bg_Blue     0x1145  // Dark blue background color
 #define Color_Bg_Black    0x0841  // Black background color
@@ -807,7 +809,7 @@ void HMI_Tune();        // Adjust the menu
 void HMI_Confirm();  //需要点击确定的界面
 #if HAS_PREHEAT
   void HMI_PLAPreheatSetting(); // PLA warm-up setting
-  void HMI_ABSPreheatSetting(); // ABS warm-up setting
+  void HMI_TPUPreheatSetting(); // TPU warm-up setting
 #endif
 
 void HMI_MaxSpeed();        // Maximum speed submenu

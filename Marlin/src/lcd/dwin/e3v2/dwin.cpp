@@ -176,7 +176,7 @@ typedef struct
 
 select_t select_page{0}, select_file{0}, select_print{0}, select_prepare{0}
          , select_control{0}, select_axis{0}, select_temp{0}, select_motion{0}, select_tune{0}
-         , select_advset{0}, select_PLA{0}, select_ABS{0}
+         , select_advset{0}, select_PLA{0}, select_TPU{0}
          , select_speed{0}
          , select_acc{0}
          , select_jerk{0}
@@ -557,16 +557,34 @@ static void Show_JPN_pause_title(void)
 
 void DWIN_Draw_Z_Offset_Float(uint8_t size, uint16_t color,uint16_t bcolor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value) 
 {
-  if (value < 0) 
-  {
-    DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+2, y, -value);
-    DWIN_Draw_String(false, true, font6x12, color, bcolor, x+2, y, F("-"));
-  }
-  else 
-  {    
-    DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+1, y, value);
-    DWIN_Draw_String(false, true, font6x12, color, bcolor, x, y, F(""));
-  }
+  #if ENABLED(COMPACT_GRID_VALUES)
+    char valueStr[8];
+    if (value < 0)
+    {
+      DWIN_Draw_String(false, true, font6x12, bcolor == Color_Bg_Black ? Color_Blue : color, bcolor, x + 5, y, F("-"));
+      value = -value;
+    }
+    else
+    {
+      DWIN_Draw_String(false, true, font6x12, bcolor == Color_Bg_Black ? Color_Red : color, bcolor, x + 5, y, F("+"));
+    }
+    if (value < 100)
+      sprintf_P(valueStr, PSTR(".%02ld"), value);
+    else
+      sprintf_P(valueStr, PSTR("%ld.%ld"), value / 100, (value % 100) / 10);
+    DWIN_Draw_String(false, true, size, color, bcolor, x, y + 8, valueStr);
+  #else
+    if (value < 0) 
+    {
+      DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+2, y, -value);
+      DWIN_Draw_String(false, true, font6x12, color, bcolor, x+2, y, F("-"));
+    }
+    else 
+    {    
+      DWIN_Draw_FloatValue(true, true, 0, size, color, bcolor, iNum, fNum, x+1, y, value);
+      DWIN_Draw_String(false, true, font6x12, color, bcolor, x, y, F(""));
+    }
+  #endif
 }
 #endif
 void DWIN_Draw_Signed_Float(uint8_t size, uint16_t bColor, uint8_t iNum, uint8_t fNum, uint16_t x, uint16_t y, long value)
@@ -1238,8 +1256,8 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define PREPARE_CASE_INSTORK (PREPARE_CASE_ZOFF + ENABLED(HAS_HOTEND))
 #define PREPARE_CASE_OUTSTORK (PREPARE_CASE_INSTORK + ENABLED(HAS_HOTEND))
 #define PREPARE_CASE_PLA  (PREPARE_CASE_OUTSTORK + ENABLED(HAS_HOTEND))
-#define PREPARE_CASE_ABS  (PREPARE_CASE_PLA + ENABLED(HAS_HOTEND))
-#define PREPARE_CASE_COOL (PREPARE_CASE_ABS + EITHER(HAS_HOTEND, HAS_HEATED_BED))
+#define PREPARE_CASE_TPU  (PREPARE_CASE_PLA + ENABLED(HAS_HOTEND))
+#define PREPARE_CASE_COOL (PREPARE_CASE_TPU + EITHER(HAS_HOTEND, HAS_HEATED_BED))
 #define PREPARE_CASE_LANG (PREPARE_CASE_COOL + 1)
 #define PREPARE_CASE_BEEPER (PREPARE_CASE_LANG + 1)
 #define PREPARE_CASE_TOTAL PREPARE_CASE_BEEPER
@@ -1266,9 +1284,9 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define TEMP_CASE_BED   (TEMP_CASE_TEMP + ENABLED(HAS_HEATED_BED))
 #define TEMP_CASE_FAN   (TEMP_CASE_BED + ENABLED(HAS_FAN))
 #define TEMP_CASE_PLA   (TEMP_CASE_FAN + ENABLED(HAS_HOTEND))
-#define TEMP_CASE_ABS   (TEMP_CASE_PLA + ENABLED(HAS_HOTEND))
+#define TEMP_CASE_TPU   (TEMP_CASE_PLA + ENABLED(HAS_HOTEND))
 
-#define TEMP_CASE_HM_PID   (TEMP_CASE_ABS + 1)    // 手动PID设置 hand movement
+#define TEMP_CASE_HM_PID   (TEMP_CASE_TPU + 1)    // 手动PID设置 hand movement
 #define TEMP_CASE_Auto_PID (TEMP_CASE_HM_PID + 1) // 自动PID设置
 
 #define TEMP_CASE_TOTAL TEMP_CASE_Auto_PID
@@ -1487,25 +1505,11 @@ void Item_Prepare_instork(const uint8_t row)
     Draw_Menu_Line(row, ICON_PLAPreheat);
   }
 
-  void Item_Prepare_ABS(const uint8_t row)
+  void Item_Prepare_TPU(const uint8_t row)
   {
-    if (HMI_flag.language < Language_Max)
-    {
-      #if ENABLED(DWIN_CREALITY_480_LCD)
-        DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS, 52, MBASE(row) + JPN_OFFSET);
-      #elif ENABLED(DWIN_CREALITY_320_LCD)
-        DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS, 42, MBASE(row) + JPN_OFFSET);
-      #endif
-    }
-    else {
-      #ifdef USE_STRING_TITLES
-        DWIN_Draw_Label(MBASE(row), F("Preheat " PREHEAT_2_LABEL));
-      #else
-        DWIN_Frame_AreaCopy(1, 107, 76, 156, 86, LBLX, MBASE(row));       // "Preheat"
-        DWIN_Frame_AreaCopy(1, 172, 76, 198, 86, LBLX + 52, MBASE(row));  // "ABS"
-      #endif
-    }
+    // The display pictures still say ABS, so the TPU row is drawn as text.
     Draw_Menu_Line(row, ICON_ABSPreheat);
+    DWIN_Draw_Label(MBASE(row) + 2, F("Preheat " PREHEAT_2_LABEL));
   }
 #endif
 
@@ -1622,7 +1626,7 @@ void Draw_Prepare_Menu()
   if (PVISI(PREPARE_CASE_OUTSTORK)) Item_Prepare_outstork(PSCROL(PREPARE_CASE_OUTSTORK)); // Edit Z-Offset / Babystep / Set Home Offset
   #if HAS_HOTEND
     if (PVISI(PREPARE_CASE_PLA)) Item_Prepare_PLA(PSCROL(PREPARE_CASE_PLA));      // Preheat PLA
-    if (PVISI(PREPARE_CASE_ABS)) Item_Prepare_ABS(PSCROL(PREPARE_CASE_ABS));      // Preheat ABS
+    if (PVISI(PREPARE_CASE_TPU)) Item_Prepare_TPU(PSCROL(PREPARE_CASE_TPU));      // Preheat TPU
   #endif
   #if HAS_PREHEAT
     if (PVISI(PREPARE_CASE_COOL)) Item_Prepare_Cool(PSCROL(PREPARE_CASE_COOL));   // Cooldown
@@ -2295,9 +2299,8 @@ static uint16_t Choose_BG_Color(float offset_value)
     // rec_RD_y=Rect_RD_Y_POS+mesh_Count->y*Y_Axis_Interval;
     rec_RD_y=Rect_RD_Y_POS-mesh_Count->y*Y_Axis_Interval;
     //补偿值的位置
-    value_LU_x=rec_LU_x+1;
-    // value_LU_y=rec_LU_y+4;
-    value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;
+    value_LU_x=rec_LU_x+(rec_RD_x-rec_LU_x)/2-CELL_TEXT_WIDTH/2;
+    value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-CELL_TEXT_HEIGHT/2+1;
     //填充颜色
     if(!Set_En)rec_fill_color=Choose_BG_Color(z_offset_value);//自动设置
     else if(1==Set_En)rec_fill_color=Set_BG_Color;  //手动填充选中块颜色，
@@ -3089,7 +3092,7 @@ void HMI_Move_Z()
         }
         else if (HMI_ValueStruct.show_mode == -3)
         {
-          checkkey = ABSPreheat;
+          checkkey = TPUPreheat;
           ui.material_preset[1].hotend_temp = HMI_ValueStruct.E_Temp;
           DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(temp_line)+TEMP_SET_OFFSET, ui.material_preset[1].hotend_temp);
           return;
@@ -3154,7 +3157,7 @@ void HMI_Move_Z()
           return;
         }
         else if (HMI_ValueStruct.show_mode == -3) {
-          checkkey = ABSPreheat;
+          checkkey = TPUPreheat;
           ui.material_preset[1].bed_temp = HMI_ValueStruct.Bed_Temp;
           DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(bed_line)+TEMP_SET_OFFSET, ui.material_preset[1].bed_temp);
           return;
@@ -3218,7 +3221,7 @@ void HMI_Move_Z()
           return;
         }
         else if (HMI_ValueStruct.show_mode == -3) {
-          checkkey = ABSPreheat;
+          checkkey = TPUPreheat;
           ui.material_preset[1].fan_speed = HMI_ValueStruct.Fan_speed;
           DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(fan_line)+TEMP_SET_OFFSET, ui.material_preset[1].fan_speed);
           return;
@@ -5434,7 +5437,7 @@ void HMI_Prepare()
         }
         #if HAS_HOTEND
           if (index_prepare == PREPARE_CASE_PLA) Item_Prepare_PLA(MROWS);
-          if (index_prepare == PREPARE_CASE_ABS) Item_Prepare_ABS(MROWS);
+          if (index_prepare == PREPARE_CASE_TPU) Item_Prepare_TPU(MROWS);
         #endif
         #if HAS_PREHEAT
           if (index_prepare == PREPARE_CASE_COOL) Item_Prepare_Cool(MROWS);
@@ -5571,7 +5574,7 @@ void HMI_Prepare()
           #endif
           TERN_(HAS_HOTEND, thermalManager.setTargetHotend(ui.material_preset[0].hotend_temp, 0));
           break;
-        case PREPARE_CASE_ABS: // ABS preheat
+        case PREPARE_CASE_TPU: // TPU preheat
           TERN_(HAS_HEATED_BED, thermalManager.setTargetBed(ui.material_preset[1].bed_temp));
           TERN_(HAS_FAN, thermalManager.set_fan_speed(0, ui.material_preset[1].fan_speed));
           #if ENABLED(USE_SWITCH_POWER_200W)
@@ -5639,7 +5642,6 @@ void Draw_Temperature_Menu()
     #endif
     #if HAS_HOTEND
       DWIN_ICON_Show(HMI_flag.language, LANGUAGE_PLASetup, 42, CLINE(TEMP_CASE_PLA) + JPN_OFFSET);
-      DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABSSetup, 42, CLINE(TEMP_CASE_ABS) + JPN_OFFSET);
     #endif
   }
   else {;}
@@ -5666,7 +5668,9 @@ void Draw_Temperature_Menu()
   _TEMP_SET_ICON(TEMP_CASE_BED, ICON_SetBedTemp, false, true);
   _TEMP_SET_ICON(TEMP_CASE_FAN, ICON_FanSpeed, false, true);
   _TEMP_SET_ICON(TEMP_CASE_PLA, ICON_SetPLAPreheat, true, false);
-  _TEMP_SET_ICON(TEMP_CASE_ABS, ICON_SetABSPreheat, true, false);
+  _TEMP_SET_ICON(TEMP_CASE_TPU, ICON_SetABSPreheat, true, false);
+  if (CVISI(TEMP_CASE_TPU))
+    DWIN_Draw_Label(CLINE(TEMP_CASE_TPU) + 2, F("TPU Preheat"));
   _TEMP_SET_ICON(TEMP_CASE_HM_PID, ICON_HM_PID, true, false);
   _TEMP_SET_ICON(TEMP_CASE_Auto_PID, ICON_Auto_PID, true, false);
 }
@@ -5832,9 +5836,8 @@ void HMI_Levling_Change()
       // rec_RD_y=Rect_RD_Y_POS+mesh_Count.y*Y_Axis_Interval;
       rec_RD_y=Rect_RD_Y_POS-mesh_Count.y*Y_Axis_Interval;
       //补偿值的位置
-      value_LU_x=rec_LU_x+1;
-      // value_LU_y=rec_LU_y+4;
-      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;   
+      value_LU_x=rec_LU_x+(rec_RD_x-rec_LU_x)/2-CELL_TEXT_WIDTH/2;
+      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-CELL_TEXT_HEIGHT/2+1; 
       if (Apply_Encoder(encoder_diffState, HMI_ValueStruct.Temp_Leveling_Value)) //点击了确认键 
       {
         checkkey = Leveling;
@@ -5900,9 +5903,8 @@ void HMI_Levling_Change()
       // rec_RD_y=Rect_RD_Y_POS+mesh_Count.y*Y_Axis_Interval;
       rec_RD_y=Rect_RD_Y_POS-mesh_Count.y*Y_Axis_Interval;
       //补偿值的位置
-      value_LU_x=rec_LU_x+1;
-      // value_LU_y=rec_LU_y+4;
-      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-6;
+      value_LU_x=rec_LU_x+(rec_RD_x-rec_LU_x)/2-CELL_TEXT_WIDTH/2;
+      value_LU_y=rec_LU_y+(rec_RD_y-rec_LU_y)/2-CELL_TEXT_HEIGHT/2+1;
       //临时代码  需要继续优化      
       // xy_int8_t mesh_Count=Converted_Grid_Point(select_level.now);    //转换网格点
       Draw_Dots_On_Screen(&mesh_Count,2,Select_Color); //设置字体背景色，不改变选中块颜色
@@ -6236,59 +6238,34 @@ void HMI_Temperature()
           #endif
         } break;
 
-        case TEMP_CASE_ABS:
-        { // ABS preheat setting
-          checkkey = ABSPreheat;
-          select_ABS.reset();
+        case TEMP_CASE_TPU:
+        { // TPU preheat setting
+          checkkey = TPUPreheat;
+          select_TPU.reset();
           HMI_ValueStruct.show_mode = -3;
           Clear_Main_Window();
           Draw_Mid_Status_Area(true);
           HMI_flag.Refresh_bottom_flag=false;//标志刷新底部参数
-          if (HMI_flag.language < Language_Max)
-          {
-            // DWIN_Frame_TitleCopy(1, 142, 16, 223, 29);                                        // "ABS Settings"
-            DWIN_ICON_Show(HMI_flag.language,LANGUAGE_ABSSetup_Title, TITLE_X, TITLE_Y);
-            #if ENABLED(DWIN_CREALITY_480_LCD)
-              DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Back, 60, 42);      // 返回
-              DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_NOZZLE, 60, 102 - font_offset); // +JPN_OFFSET
-              #if HAS_HEATED_BED
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_BED, 60, 155 - font_offset);
-              #endif
-              #if HAS_FAN
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_FAN, 60, 208 - font_offset);
-              #endif
-              #if ENABLED(EEPROM_SETTINGS)
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABSSetupSave, 60, 261 - font_offset);
-              #endif
-            #elif ENABLED(DWIN_CREALITY_320_LCD)
-              DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Back, 42, 26);      // 返回
-              DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_NOZZLE, 42, 84 - font_offset);  // +JPN_OFFSET
-              #if HAS_HEATED_BED
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_BED, 42, 120 - font_offset);
-              #endif
-              #if HAS_FAN
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABS_FAN, 42, 156 - font_offset);
-              #endif
-              #if ENABLED(EEPROM_SETTINGS)
-                DWIN_ICON_Show(HMI_flag.language, LANGUAGE_ABSSetupSave, 42, 192 - font_offset);
-              #endif
-            #endif
-          }
-          else {}
+          Clear_Title_Bar();
+          DWIN_Draw_String(false, false, DWIN_FONT_HEAD, Color_White, Color_Bg_Blue, 60, 4, F("TPU Settings"));
           Draw_Back_First();
           uint8_t i = 0;
           Draw_Menu_Line(++i, ICON_SetEndTemp);
+          DWIN_Draw_Label(MBASE(i) + 2, F("TPU Nozzle Temp"));
           DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(i)+TEMP_SET_OFFSET, ui.material_preset[1].hotend_temp);
           #if HAS_HEATED_BED
             Draw_Menu_Line(++i, ICON_SetBedTemp);
+            DWIN_Draw_Label(MBASE(i) + 2, F("TPU Bed Temp"));
             DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(i)+TEMP_SET_OFFSET, ui.material_preset[1].bed_temp);
           #endif
           #if HAS_FAN
             Draw_Menu_Line(++i, ICON_FanSpeed);
+            DWIN_Draw_Label(MBASE(i) + 2, F("TPU Fan Speed"));
             DWIN_Draw_IntValue(true, true, 0, font8x16, Color_White, Color_Bg_Black, 3, VALUERANGE_X, MBASE(i)+TEMP_SET_OFFSET, ui.material_preset[1].fan_speed);
           #endif
           #if ENABLED(EEPROM_SETTINGS)
             Draw_Menu_Line(++i, ICON_WriteEEPROM);
+            DWIN_Draw_Label(MBASE(i) + 2, F("Save TPU Settings"));
           #endif
         }
         break;
@@ -7111,23 +7088,23 @@ void HMI_Tune()
     DWIN_UpdateLCD();
   }
 
-  /* ABS Preheat */
-  void HMI_ABSPreheatSetting() {
+  /* TPU Preheat */
+  void HMI_TPUPreheatSetting() {
     ENCODER_DiffState encoder_diffState = get_encoder_state();
     if (encoder_diffState == ENCODER_DIFF_NO) return;
 
     // Avoid flicker by updating only the previous menu
     if (encoder_diffState == ENCODER_DIFF_CW) {
-      if (select_ABS.inc(1 + PREHEAT_CASE_TOTAL)) Move_Highlight(1, select_ABS.now);
+      if (select_TPU.inc(1 + PREHEAT_CASE_TOTAL)) Move_Highlight(1, select_TPU.now);
     }
     else if (encoder_diffState == ENCODER_DIFF_CCW) {
-      if (select_ABS.dec()) Move_Highlight(-1, select_ABS.now);
+      if (select_TPU.dec()) Move_Highlight(-1, select_TPU.now);
     }
     else if (encoder_diffState == ENCODER_DIFF_ENTER) {
-      switch (select_ABS.now) {
+      switch (select_TPU.now) {
         case 0: // Back
           checkkey = TemperatureID;
-          select_temp.set(TEMP_CASE_ABS);
+          select_temp.set(TEMP_CASE_TPU);
           index_temp = MROWS;
           HMI_ValueStruct.show_mode = -1;
           Draw_Temperature_Menu();
@@ -7157,7 +7134,7 @@ void HMI_Tune()
             break;
         #endif
         #if ENABLED(EEPROM_SETTINGS)
-          case PREHEAT_CASE_SAVE: { // Save ABS configuration
+          case PREHEAT_CASE_SAVE: { // Save TPU configuration
             const bool success = settings.save();
             HMI_AudioFeedback(success);
           } break;
@@ -8239,7 +8216,7 @@ void DWIN_HandleScreen() {
     case Tune:            HMI_Tune(); break;
     #if HAS_PREHEAT
       case PLAPreheat:    HMI_PLAPreheatSetting(); break;
-      case ABSPreheat:    HMI_ABSPreheatSetting(); break;
+      case TPUPreheat:    HMI_TPUPreheatSetting(); break;
     #endif
     case MaxSpeed:        HMI_MaxSpeed(); break;
     case MaxAcceleration: HMI_MaxAcceleration(); break;
