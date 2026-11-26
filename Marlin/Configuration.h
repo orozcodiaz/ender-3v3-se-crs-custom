@@ -167,8 +167,7 @@
 #define PLATFORM_OFFSET         1 //1:结构件背板2.5mm，固件需要做偏移适配 0：结构件背板没有做偏移
 #define HIGH_SPEED              1 //高速模式 1：打开高速模式 150mm/s; 0：低速模式 80mm/s 
 #define HIGH_SPEED_1            1 //只开关高速的宏  
-#define SHOW_GRID_VALUES        1 //1 显示自动调平网格值  0 不显示自动调平网格值
-#define COMPACT_GRID_VALUES     1 // 0 - original Creality style, 1 - compact style for tight grids 
+#define SHOW_GRID_VALUES        1 //1 显示自动调平网格值  0 不显示自动调平网格值 
 #define K8_EXTRUDER             0 //1 是K8挤出机   0 是精灵挤出机
 #define USER_LEVEL_CHECK        1 // 调平校准使能
 #define WUHAN_CHENGE_PLATFORM   1 // 武汉改平台板  20230913_Rock
@@ -1577,7 +1576,7 @@
 #if EITHER(AUTO_BED_LEVELING_LINEAR, AUTO_BED_LEVELING_BILINEAR)
 
   // Set the number of grid points per dimension.
-  #define GRID_MAX_POINTS_X 6 // 6x6 = 36 point mesh
+  #define GRID_MAX_POINTS_X 4
   #define GRID_MAX_POINTS_Y GRID_MAX_POINTS_X
 
   // Probe along the Y axis, advancing X after each column
@@ -1596,7 +1595,7 @@
     #define ABL_BILINEAR_SUBDIVISION
     #if ENABLED(ABL_BILINEAR_SUBDIVISION)
       // Number of subdivisions between probe points
-      #define BILINEAR_SUBDIVISIONS 4
+      #define BILINEAR_SUBDIVISIONS 5
     #endif
 
   #endif
