@@ -12,6 +12,7 @@
 #include "../../module/planner.h"
 #include "../../module/stepper.h"
 #include "../../module/probe.h"
+#include "../../module/settings.h"
 #include "../../../Configuration_adv.h"
 #include "../../lcd/dwin/e3v2/dwin.h"
 
@@ -22,11 +23,15 @@
  */
 void GcodeSuite::M8015(void)
 {
+  // S0 measures Z offset only. S1 (default) continues into bed leveling.
+  const bool wLevel = parser.seen('S') ? parser.value_bool() : true;
   float zOffset = 0;
+  float saved_mesh[GRID_MAX_POINTS_X][GRID_MAX_POINTS_Y];
    for(int x = 0; x < GRID_MAX_POINTS_X; x ++)
   {
     for(int y = 0; y < GRID_MAX_POINTS_Y; y ++)
     {
+      saved_mesh[x][y] = z_values[x][y];
       z_values[x][y] = 0;
     }
   }
@@ -55,12 +60,28 @@ void GcodeSuite::M8015(void)
       // TERN_(EEPROM_SETTINGS, settings.save());
       // TERN_(USE_AUTOZ_TOOL_2, DWIN_CompletedHeight());
       RUN_AND_WAIT_GCODE_CMD("G28", true);                   //测量前先获取一次HOME点 
-      HMI_flag.leveling_offset_flag=false;
-      HMI_flag.Pressure_Height_end=true;
+
+      if (wLevel) {
+        HMI_flag.leveling_offset_flag=false;
+        HMI_flag.Pressure_Height_end=true;
+      }
+      else {
+        // Keep the 16-point mesh and store the new Z offset.
+        for (int x = 0; x < GRID_MAX_POINTS_X; x++)
+          for (int y = 0; y < GRID_MAX_POINTS_Y; y++)
+            z_values[x][y] = saved_mesh[x][y];
+        refresh_bed_level();
+        TERN_(EEPROM_SETTINGS, settings.save());
+        Goto_MainMenu();
+      }
     // }
   }
   else //对高失败
   {
+    for (int x = 0; x < GRID_MAX_POINTS_X; x++)
+      for (int y = 0; y < GRID_MAX_POINTS_Y; y++)
+        z_values[x][y] = saved_mesh[x][y];
+    refresh_bed_level();
     HMI_flag.leveling_offset_flag=false; //测试失败
     checkkey=POPUP_CONFIRM; 
     Popup_window_boot(High_faild_clear);//弹出对高失败的界面

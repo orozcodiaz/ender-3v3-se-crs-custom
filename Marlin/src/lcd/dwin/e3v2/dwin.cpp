@@ -186,6 +186,7 @@ select_t select_page{0}, select_file{0}, select_print{0}, select_prepare{0}
          ,select_hm_set_pid{0}
          ,select_set_pid{0}
          ,select_level{0}
+         ,select_level_menu{0}
          ,select_show_pic{0};
 
 
@@ -1247,8 +1248,7 @@ inline bool Apply_Encoder(const ENCODER_DiffState &encoder_diffState, auto &valr
 #define  CONTROL_CASE_MOVE  (CONTROL_CASE_TEMP + 1)
 #define CONTROL_CASE_SAVE  (CONTROL_CASE_MOVE + ENABLED(EEPROM_SETTINGS))
 #define CONTROL_CASE_LOAD  (CONTROL_CASE_SAVE + ENABLED(EEPROM_SETTINGS))
-#define CONTROL_CASE_SHOW_DATA (CONTROL_CASE_LOAD+1)     // 调平数据展示
-#define CONTROL_CASE_RESET (CONTROL_CASE_SHOW_DATA + ENABLED(EEPROM_SETTINGS))
+#define CONTROL_CASE_RESET (CONTROL_CASE_LOAD + ENABLED(EEPROM_SETTINGS))
 
 //#define CONTROL_CASE_ADVSET (CONTROL_CASE_RESET + 1)  //rock_20210726
 //#define CONTROL_CASE_INFO  (CONTROL_CASE_ADVSET + 1)
@@ -1710,7 +1710,6 @@ void Draw_Control_Menu()
       #if ENABLED(EEPROM_SETTINGS)
         DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Store, 42, CLINE(CONTROL_CASE_SAVE) + JPN_OFFSET);
         DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Read, 42, CLINE(CONTROL_CASE_LOAD) + JPN_OFFSET);
-        DWIN_ICON_Show(HMI_flag.language ,LANGUAGE_EDIT_LEVEL_DATA, 42, CLINE(CONTROL_CASE_SHOW_DATA)+JPN_OFFSET);
         // DWIN_ICON_Show(HMI_flag.language, LANGUAGE_Reset, 42, CLINE(CONTROL_CASE_RESET) + JPN_OFFSET);
       #endif
     #endif
@@ -1736,7 +1735,6 @@ void Draw_Control_Menu()
   #if ENABLED(EEPROM_SETTINGS)
     _TEMP_ICON(CONTROL_CASE_SAVE, ICON_WriteEEPROM, false);
     _TEMP_ICON(CONTROL_CASE_LOAD, ICON_ReadEEPROM, false);
-    _TEMP_ICON(CONTROL_CASE_SHOW_DATA, ICON_Edit_Level_Data, false);
     _TEMP_ICON(CONTROL_CASE_RESET, ICON_ResumeEEPROM, false);
   #endif
   _TEMP_ICON(CONTROL_CASE_INFO, ICON_Info, true);
@@ -4386,6 +4384,75 @@ void HMI_Select_language()
   DWIN_UpdateLCD();
 }
 
+void Draw_Level_Menu()
+{
+  Clear_Main_Window();
+  Draw_Mid_Status_Area(true);
+  HMI_flag.Refresh_bottom_flag = false;
+
+  Draw_Back_First(select_level_menu.now == 0);
+  Draw_Title(F("Leveling Menu"));
+
+  DWIN_Draw_Label(MBASE(1), F("Start Auto Z-Offset"));
+  Draw_Menu_Line(1, ICON_SetHome);
+
+  DWIN_Draw_Label(MBASE(2), F("Start Bed Leveling"));
+  Draw_Menu_Line(2, ICON_Edit_Level_Data);
+
+  DWIN_ICON_Show(HMI_flag.language, LANGUAGE_EDIT_LEVEL_DATA, 42, MBASE(3) + JPN_OFFSET);
+  Draw_Menu_Line(3, ICON_Edit_Level_Data);
+
+  if (select_level_menu.now)
+    Draw_Menu_Cursor(select_level_menu.now);
+}
+
+void HMI_Level_Menu()
+{
+  ENCODER_DiffState encoder_diffState = get_encoder_state();
+  if (encoder_diffState == ENCODER_DIFF_NO)
+    return;
+
+  if (encoder_diffState == ENCODER_DIFF_CW)
+  {
+    if (select_level_menu.inc(1 + 3))
+      Move_Highlight(1, select_level_menu.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_CCW)
+  {
+    if (select_level_menu.dec())
+      Move_Highlight(-1, select_level_menu.now);
+  }
+  else if (encoder_diffState == ENCODER_DIFF_ENTER)
+  {
+    switch (select_level_menu.now)
+    {
+      case 0: // Back
+        select_page.set(3);
+        select_level_menu.reset();
+        Goto_MainMenu();
+        break;
+      case 1: // Z offset only. Mesh is restored and saved inside M8015 S0.
+        Popup_Window_Home();
+        gcode.process_subcommands_now_P(PSTR("M8015 S0"));
+        break;
+      case 2: // 16-point bed mesh, saved by G29
+        Popup_Window_Home();
+        RUN_AND_WAIT_GCODE_CMD("G28", true);
+        HMI_flag.leveling_offset_flag = false;
+        HMI_flag.Pressure_Height_end = true;
+        break;
+      case 3: // Edit the stored mesh
+        HMI_flag.G29_finish_flag = true;
+        HMI_flag.Edit_Only_flag = true;
+        Popup_Window_Leveling();
+        checkkey = Leveling;
+        Refresh_Leveling_Value();
+        break;
+    }
+  }
+  DWIN_UpdateLCD();
+}
+
 /* Main Process */
 void HMI_MainMenu()
 {
@@ -4440,16 +4507,11 @@ void HMI_MainMenu()
         Draw_Control_Menu();
         break;
 
-      case 3: // Leveling or Info
+      case 3: // Leveling menu
         #if HAS_ONESTEP_LEVELING
-          // checkkey = Leveling;
-          // HMI_Leveling();
-          checkkey = ONE_HIGH;
-          #if ANY(USE_AUTOZ_TOOL,USE_AUTOZ_TOOL_2)
-            queue.inject_P(PSTR("M8015"));
-            // Popup_Window_Home();
-            Popup_Window_Height(Nozz_Start);
-          #endif
+          checkkey = Level;
+          select_level_menu.reset();
+          Draw_Level_Menu();
         #else
           checkkey = Info;
           Draw_Info_Menu();
@@ -5710,16 +5772,6 @@ void HMI_Control()
             HMI_AudioFeedback(success);
           }
           break;
-            #if HAS_LEVELING
-        case CONTROL_CASE_SHOW_DATA:
-          HMI_flag.G29_finish_flag=true;
-          HMI_flag.Edit_Only_flag=true; 
-          Popup_Window_Leveling();              
-          checkkey = Leveling;
-          Refresh_Leveling_Value();      //刷新调平值和颜色到屏幕上 
-          
-        break;
-        #endif
         case CONTROL_CASE_RESET:
           // Reset EEPROM
           settings.reset();
@@ -5909,9 +5961,9 @@ void HMI_Levling_Change()
         if(HMI_flag.Edit_Only_flag)
         {
           HMI_flag.Edit_Only_flag=false;
-          checkkey = Control;
-          select_control.set(CONTROL_CASE_SHOW_DATA);
-          Draw_Control_Menu();
+          checkkey = Level;
+          select_level_menu.set(3);
+          Draw_Level_Menu();
         }
         else
         {
@@ -7310,6 +7362,9 @@ void HMI_Init()
   } 
   Read_Boot_Step_Value();//读取开机引导步骤的值
   Read_Auto_PID_Value();
+  // Stock EEPROM caps Z at 5mm/s, which makes the 16-point probe crawl.
+  if (planner.settings.max_feedrate_mm_s[Z_AXIS] < 20)
+    planner.settings.max_feedrate_mm_s[Z_AXIS] = 20;
   if(HMI_flag.Need_boot_flag)HMI_Boot_Set();           //开机引导设置
   PRINT_LOG("HMI_flag.boot_step:",HMI_flag.boot_step,"HMI_flag.language:",HMI_flag.language);
   PRINT_LOG("HMI_ValueStruct.Auto_PID_Value[1]:",HMI_ValueStruct.Auto_PID_Value[1],"HMI_ValueStruct.Auto_PID_Value[2]:",HMI_ValueStruct.Auto_PID_Value[2]);
@@ -8149,6 +8204,7 @@ void DWIN_HandleScreen() {
     case SelectFile:      HMI_SelectFile(); break;
     case Prepare:         HMI_Prepare(); break;
     case Control:         HMI_Control(); break;
+    case Level:           HMI_Level_Menu(); break;
     case Leveling:
       #if ENABLED(SHOW_GRID_VALUES)  //如果需要显示调平网格值显示
           HMI_Leveling();
